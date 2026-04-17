@@ -12,6 +12,9 @@ from datetime import datetime, timedelta
 
 from ..config import LOG_DIR, LOG_FILE, LOG_MAX_DAYS, LOG_LEVEL
 
+# 日志记录器缓存
+_logger_cache = {}
+
 
 def setup_logger(name="ssh_cleaner"):
     """
@@ -23,6 +26,10 @@ def setup_logger(name="ssh_cleaner"):
     Returns:
         logging.Logger: 配置好的日志记录器
     """
+    # 检查缓存
+    if name in _logger_cache:
+        return _logger_cache[name]
+    
     # 确保日志目录存在
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR, exist_ok=True)
@@ -33,6 +40,7 @@ def setup_logger(name="ssh_cleaner"):
     
     # 避免重复添加处理器
     if logger.handlers:
+        _logger_cache[name] = logger
         return logger
     
     # 创建格式化器
@@ -63,6 +71,9 @@ def setup_logger(name="ssh_cleaner"):
     # 清理超过保留天数的旧日志文件
     cleanup_old_logs()
     
+    # 缓存日志记录器
+    _logger_cache[name] = logger
+    
     return logger
 
 
@@ -87,7 +98,8 @@ def cleanup_old_logs():
         # 检查文件修改时间
         try:
             file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
-            if file_mtime < cutoff_date:
+            # 只删除.log文件，保留备份文件
+            if file_mtime < cutoff_date and filename.endswith('.log'):
                 os.remove(file_path)
                 print(f"已删除旧日志文件: {filename}")
         except Exception as e:

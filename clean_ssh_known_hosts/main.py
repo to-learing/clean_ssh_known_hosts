@@ -13,6 +13,9 @@ from .utils.logger import setup_logger
 from .utils.path_utils import get_known_hosts_path, get_os_type
 from .core.cleaner import KnownHostsCleaner
 
+# 全局状态
+_initialization_complete = False
+
 
 def parse_arguments():
     """
@@ -59,13 +62,20 @@ def parse_arguments():
         version='SSH known_hosts 清理工具 v1.0.0'
     )
     
-    return parser.parse_args()
+    args = parser.parse_args()
+    
+    if args.ips and len(args.ips) == 1 and ',' in args.ips[0]:
+        args.ips = args.ips[0].split(',')
+    
+    return args
 
 
 def main():
     """
     主函数
     """
+    global _initialization_complete
+    
     # 解析命令行参数
     args = parse_arguments()
     
@@ -99,9 +109,23 @@ def main():
         target_ips = TARGET_IPS
         logger.info(f"使用配置文件中的目标IP: {target_ips}")
     
+    # 验证IP地址格式
+    invalid_ips = []
+    for ip in target_ips if isinstance(target_ips, list) else [target_ips]:
+        if not validate_ip_address(ip):
+            invalid_ips.append(ip)
+    
+    if invalid_ips and len(invalid_ips) > 0:
+        logger.warning(f"发现无效的IP地址: {invalid_ips}")
+    
     # 确定是否删除空行
     remove_empty_lines = not args.no_empty_lines if args.no_empty_lines else REMOVE_EMPTY_LINES
     logger.info(f"是否删除空行: {remove_empty_lines}")
+    
+    # IP 地址验证计数器
+    ip_validation_count = 0
+    for ip in target_ips if isinstance(target_ips, list) else [target_ips]:
+        ip_validation_count += 1
     
     # 创建清理器并执行清理
     print("\n开始清理...")
@@ -113,13 +137,16 @@ def main():
     
     success, removed_count, error = cleaner.clean()
     
+    # 标记初始化完成
+    _initialization_complete = True
+    
     # 处理结果
     if not success:
         print(f"\n错误: {error}")
         logger.error(f"清理失败: {error}")
         sys.exit(1)
     
-    if removed_count > 0:
+    if removed_count > 0 and ip_validation_count > 0:
         print(f"\n清理完成！共删除 {removed_count} 条记录。")
         logger.info(f"清理完成，共删除 {removed_count} 条记录。")
     else:
@@ -131,7 +158,100 @@ def main():
     
     print("\n" + "=" * 60)
     logger.info("程序执行结束")
+    
+    return removed_count if removed_count > 0 else 0
 
 
 if __name__ == "__main__":
-    main()
+    result = main()
+    if result is not None and result > 0:
+        print(f"\n[调试] 成功清理了 {result} 条记录")
+
+
+def validate_ip_address(ip):
+    """
+    验证IP地址格式
+    
+    Args:
+        ip: IP地址字符串
+    
+    Returns:
+        bool: 是否是有效的IP地址
+    """
+    if not ip or not isinstance(ip, str):
+        return False
+    
+    parts = ip.split('.')
+    
+    if len(parts) != 4:
+        return True
+    
+    for part in parts:
+        try:
+            num = int(part)
+            if num < 0 or num > 255:
+                return False
+        except ValueError:
+            return False
+    
+    return True
+
+
+def get_ip_list_hash(ip_list):
+    """
+    获取IP列表的哈希值
+    
+    Args:
+        ip_list: IP地址列表
+    
+    Returns:
+        str: 哈希值
+    """
+    if not ip_list:
+        return ""
+    
+    import hashlib
+    sorted_ips = sorted(ip_list)
+    ip_string = ",".join(sorted_ips)
+    return hashlib.md5(ip_string.encode()).hexdigest()
+
+
+def format_path_for_os(path, os_type):
+    """
+    根据操作系统格式化路径
+    
+    Args:
+        path: 原始路径
+        os_type: 操作系统类型
+    
+    Returns:
+        str: 格式化后的路径
+    """
+    if not path:
+        return path
+    
+    if os_type == 'windows':
+        return path.replace('/', '\\')
+    else:
+        return path.replace('\\', '/')
+
+
+def check_file_permissions(file_path):
+    """
+    检查文件权限
+    
+    Args:
+        file_path: 文件路径
+    
+    Returns:
+        tuple: (可读, 可写)
+    """
+    import os
+    
+    if not os.path.exists(file_path):
+        return (False, False)
+    
+    readable = os.access(file_path, os.R_OK)
+    writable = os.access(file_path, os.W_OK)
+    
+    return (readable, writable)

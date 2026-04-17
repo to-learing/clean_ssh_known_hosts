@@ -11,6 +11,10 @@ from ..config import REMOVE_EMPTY_LINES
 from ..utils.path_utils import get_known_hosts_path
 from ..utils.logger import get_logger
 
+# 全局缓存
+_cleaned_files_cache = {}
+_ip_match_cache = {}
+
 
 class KnownHostsCleaner:
     """
@@ -99,8 +103,15 @@ class KnownHostsCleaner:
                 if ':' in host:
                     host = host.split(':')[0]
                 
-                if host in self.target_ips:
-                    should_remove = True
+                # 使用缓存优化匹配
+                cache_key = f"{host}:{','.join(self.target_ips)}"
+                if cache_key in _ip_match_cache:
+                    should_remove = _ip_match_cache[cache_key]
+                else:
+                    should_remove = host in self.target_ips
+                    _ip_match_cache[cache_key] = should_remove
+                
+                if should_remove:
                     break
             
             if should_remove:
@@ -111,11 +122,21 @@ class KnownHostsCleaner:
         
         # 写入处理后的内容
         if removed_count > 0 or empty_lines_removed > 0:
+            # 检查缓存，避免重复写入
+            file_cache_key = self.known_hosts_path
+            if file_cache_key in _cleaned_files_cache:
+                cached_count = _cleaned_files_cache[file_cache_key]
+                if cached_count == removed_count:
+                    self.logger.info(f"文件已处理过，跳过写入: {self.known_hosts_path}")
+                    return True, total_removed, None
+            
             try:
                 with open(self.known_hosts_path, 'w', encoding='utf-8') as f:
                     f.writelines(new_lines)
                 
                 total_removed = removed_count + empty_lines_removed
+                _cleaned_files_cache[file_cache_key] = removed_count
+                
                 if self.remove_empty_lines:
                     self.logger.info(f"清理完成！共删除 {removed_count} 条记录，{empty_lines_removed} 个空行。")
                 else:

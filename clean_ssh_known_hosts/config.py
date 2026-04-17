@@ -6,6 +6,7 @@
 """
 
 import os
+import sys
 
 # 基础目录
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,6 +16,10 @@ LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE = os.path.join(LOG_DIR, "ssh_cleaner.log")
 LOG_MAX_DAYS = 14  # 日志保留最大天数（2个星期）
 LOG_LEVEL = "INFO"  # 日志级别：DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+# 缓存配置
+_PATH_CACHE_ENABLED = True
+_CACHE_MAX_SIZE = 100
 
 # SSH known_hosts 配置
 # 可以根据操作系统类型设置不同的默认路径，也可以手动指定

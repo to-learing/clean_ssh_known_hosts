@@ -9,6 +9,10 @@ import os
 import sys
 from pathlib import Path
 
+# 路径缓存
+_path_cache = {}
+_os_type_cache = None
+
 
 def get_os_type():
     """
@@ -17,15 +21,22 @@ def get_os_type():
     Returns:
         str: 操作系统类型，可能值为 'windows', 'linux', 'darwin' (macOS), 'other'
     """
+    global _os_type_cache
+    
+    if _os_type_cache is not None:
+        return _os_type_cache
+    
     platform = sys.platform
     if platform.startswith('win'):
-        return 'windows'
+        _os_type_cache = 'windows'
     elif platform.startswith('linux'):
-        return 'linux'
+        _os_type_cache = 'linux'
     elif platform == 'darwin':
-        return 'darwin'
+        _os_type_cache = 'darwin'
     else:
-        return 'other'
+        _os_type_cache = 'other'
+    
+    return _os_type_cache
 
 
 def get_known_hosts_path(custom_path=None):
@@ -43,6 +54,11 @@ def get_known_hosts_path(custom_path=None):
     if custom_path:
         return os.path.abspath(custom_path)
     
+    # 检查缓存
+    cache_key = "known_hosts_default"
+    if cache_key in _path_cache:
+        return _path_cache[cache_key]
+    
     os_type = get_os_type()
     home_dir = os.path.expanduser("~")
     
@@ -56,6 +72,9 @@ def get_known_hosts_path(custom_path=None):
     
     # 确保使用正确的路径分隔符
     known_hosts_path = os.path.join(ssh_dir, "known_hosts")
+    
+    # 缓存路径
+    _path_cache[cache_key] = known_hosts_path
     
     return known_hosts_path
 
@@ -124,10 +143,18 @@ def normalize_path(path):
     Returns:
         str: 规范化后的绝对路径
     """
+    # 检查缓存
+    if path in _path_cache:
+        return _path_cache[path]
+    
     # 扩展用户目录符号（如 ~）
     path = os.path.expanduser(path)
     # 规范化路径
     path = os.path.normpath(path)
     # 转换为绝对路径
     path = os.path.abspath(path)
+    
+    # 缓存结果
+    _path_cache[path] = path
+    
     return path
