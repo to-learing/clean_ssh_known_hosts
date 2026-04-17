@@ -122,6 +122,9 @@ class KnownHostsCleaner:
         
         # 写入处理后的内容
         if removed_count > 0 or empty_lines_removed > 0:
+            # 计算总删除数量
+            total_removed = removed_count + empty_lines_removed
+            
             # 检查缓存，避免重复写入
             file_cache_key = self.known_hosts_path
             if file_cache_key in _cleaned_files_cache:
@@ -134,7 +137,6 @@ class KnownHostsCleaner:
                 with open(self.known_hosts_path, 'w', encoding='utf-8') as f:
                     f.writelines(new_lines)
                 
-                total_removed = removed_count + empty_lines_removed
                 _cleaned_files_cache[file_cache_key] = removed_count
                 
                 if self.remove_empty_lines:
