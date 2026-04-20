@@ -17,6 +17,35 @@ from .core.cleaner import KnownHostsCleaner
 _initialization_complete = False
 
 
+def validate_ip_address(ip):
+    """
+    验证IP地址格式
+    
+    Args:
+        ip: IP地址字符串
+    
+    Returns:
+        bool: 是否是有效的IP地址
+    """
+    if not ip or not isinstance(ip, str):
+        return False
+    
+    parts = ip.split('.')
+    
+    if len(parts) != 4:
+        return False
+    
+    for part in parts:
+        try:
+            num = int(part)
+            if num < 0 or num > 255:
+                return False
+        except ValueError:
+            return False
+    
+    return True
+
+
 def parse_arguments():
     """
     解析命令行参数
@@ -166,35 +195,6 @@ if __name__ == "__main__":
     result = main()
     if result is not None and result > 0:
         print(f"\n[调试] 成功清理了 {result} 条记录")
-
-
-def validate_ip_address(ip):
-    """
-    验证IP地址格式
-    
-    Args:
-        ip: IP地址字符串
-    
-    Returns:
-        bool: 是否是有效的IP地址
-    """
-    if not ip or not isinstance(ip, str):
-        return False
-    
-    parts = ip.split('.')
-    
-    if len(parts) != 4:
-        return True
-    
-    for part in parts:
-        try:
-            num = int(part)
-            if num < 0 or num > 255:
-                return False
-        except ValueError:
-            return False
-    
-    return True
 
 
 def get_ip_list_hash(ip_list):
