@@ -87,6 +87,9 @@ def cleanup_old_logs():
     # 计算截止日期
     cutoff_date = datetime.now() - timedelta(days=LOG_MAX_DAYS)
     
+    # 获取当前日志文件名（不含路径）
+    current_log_name = os.path.basename(LOG_FILE)
+    
     # 遍历日志目录中的文件
     for filename in os.listdir(LOG_DIR):
         file_path = os.path.join(LOG_DIR, filename)
@@ -95,11 +98,15 @@ def cleanup_old_logs():
         if not os.path.isfile(file_path):
             continue
         
+        # 不删除当前正在使用的日志文件
+        if filename == current_log_name:
+            continue
+        
         # 检查文件修改时间
         try:
             file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
-            # 只删除.log文件，保留备份文件
-            if file_mtime < cutoff_date and filename.endswith('.log'):
+            # 删除超过保留天数的文件（包括备份文件）
+            if file_mtime < cutoff_date:
                 os.remove(file_path)
                 print(f"已删除旧日志文件: {filename}")
         except Exception as e:
