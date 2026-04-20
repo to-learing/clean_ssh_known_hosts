@@ -89,7 +89,15 @@ class KnownHostsCleaner:
                 new_lines.append(line)
                 continue
             
-            host_part = parts[0]
+            # 处理 @cert-authority 或 @revoked 前缀
+            # 这些标记是独立的字段，不是主机名的一部分
+            host_part_index = 0
+            if len(parts) > 0 and parts[0].startswith('@'):
+                # @cert-authority 或 @revoked 是独立的标记，主机名在下一个字段
+                if len(parts) > 1:
+                    host_part_index = 1
+            
+            host_part = parts[host_part_index]
             hosts = host_part.split(',')
             
             # 检查是否需要删除
@@ -97,8 +105,13 @@ class KnownHostsCleaner:
             for host in hosts:
                 host = host.strip()
                 # 处理可能的前缀（如 @cert-authority）
+                # 注意：这是旧格式的处理，新格式中 @cert-authority 是独立字段
                 if '@' in host:
                     host = host.split('@')[-1]
+                # 处理可能的方括号（用于包含端口号的格式，如 [192.168.1.1]:2222）
+                if host.startswith('[') and ']' in host:
+                    # 提取方括号内的内容
+                    host = host[1:host.index(']')]
                 # 处理可能的端口号
                 if ':' in host:
                     host = host.split(':')[0]
